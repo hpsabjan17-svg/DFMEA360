@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+
+    <meta name="viewport"
+          content="width=device-width, initial-scale=1.0">
+
+    <title>
+        {% block title %}
+        Automotive FMEA System
+        {% endblock %}
+    </title>
+
+    <!-- IMPORTANT: your CSS is inside static/css/ -->
+    <link rel="stylesheet"
+          href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+
+
+<body>
+
+<header class="main-header">
+
+    <div class="header-inner">
+
+        <div class="logo">
+            Automotive FMEA
+        </div>
+
+        <nav class="main-nav">
+
+            <a href="{{ url_for('dashboard') }}">
+                Dashboard
+            </a>
+
+            <a href="{{ url_for('project') }}">
+                Project Details
+            </a>
+
+            <a href="{{ url_for('functional_analysis') }}">
+                Functional Analysis
+            </a>
+
+            <a href="{{ url_for('boundary_diagram') }}">
+                Boundary Diagram
+            </a>
+
+            <a href="{{ url_for('product_structure') }}">
+                Product Structure
+            </a>
+
+            <a href="{{ url_for('key_characteristics') }}">
+                Key Characteristics
+            </a>
+
+            <!-- FUNCTION TO PRODUCT -->
+            <a href="{{ url_for('functional_links') }}">
+                Function to Product
+            </a>
+
+            <a href="{{ url_for('dfmea') }}">
+                DFMEA
+            </a>
+
+            <a href="{{ url_for('pfmea') }}">
+                PFMEA
+            </a>
+
+            <a href="{{ url_for('control_plan') }}">
+                Control Plan
+            </a>
+
+            <a href="{{ url_for('reports') }}">
+                Reports
+            </a>
+
+            {% if session.get('user_id') %}
+
+                <span class="user-name">
+                    {{ session.get('name')
+                       or session.get('username')
+                       or 'User' }}
+                </span>
+
+                <a href="{{ url_for('logout') }}"
+                   class="logout-link">
+                    Sign Out
+                </a>
+
+            {% endif %}
+
+        </nav>
+
+    </div>
+
+</header>
+
+
+<main>
+
+    {% block content %}
+    {% endblock %}
+
+
+    <div class="page-navigation">
+
+        {% if request.path == "/project" %}
+
+            <a href="{{ url_for('dashboard') }}"
+               class="nav-btn">
+                ← Previous
+            </a>
+
+        {% elif request.path == "/functional-analysis" %}
+
+            <a href="{{ url_for('project') }}"
+               class="nav-btn">
+                ← Previous
+            </a>
+
+        {% elif request.path == "/boundary-diagram" %}
+
+            <a href="{{ url_for('functional_analysis') }}"
+               class="nav-btn">
+                ← Previous
+            </a>
+
+        {% elif request.path == "/product-structure" %}
+
+            <a href="{{ url_for('boundary_diagram') }}"
+               class="nav-btn">
+                ← Previous
+            </a>
+
+        {% elif request.path == "/key-characteristics" %}
+
+            <a href="{{ url_for('product_structure') }}"
+               class="nav-btn">
+                ← Previous
+            </a>
+
+        {% elif request.path == "/functional-links" %}
+
+            <a href="{{ url_for('key_characteristics') }}"
+               class="nav-btn">
+                ← Previous
+            </a>
+
+        {% elif request.path == "/dfmea" %}
+
+            <a href="{{ url_for('functional_links') }}"
+               class="nav-btn">
+                ← Previous
+            </a>
+
+        {% elif request.path == "/pfmea" %}
+
+            <a href="{{ url_for('dfmea') }}"
+               class="nav-btn">
+                ← Previous
+            </a>
+
+        {% elif request.path == "/control-plan" %}
+
+            <a href="{{ url_for('pfmea') }}"
+               class="nav-btn">
+                ← Previous
+            </a>
+
+        {% elif request.path == "/reports" %}
+
+            <a href="{{ url_for('control_plan') }}"
+               class="nav-btn">
+                ← Previous
+            </a>
+
+        {% endif %}
+
+
+        {% if request.path == "/dashboard" %}
+
+            <a href="{{ url_for('project') }}"
+               class="nav-btn next-btn">
+                Next →
+            </a>
+
+        {% elif request.path == "/project" %}
+
+            <a href="{{ url_for('functional_analysis') }}"
+               class="nav-btn next-btn">
+                Next →
+            </a>
+
+        {% elif request.path == "/functional-analysis" %}
+
+            <a href="{{ url_for('boundary_diagram') }}"
+               class="nav-btn next-btn">
+                Next →
+            </a>
+
+        {% elif request.path == "/boundary-diagram" %}
+
+            <a href="{{ url_for('product_structure') }}"
+               class="nav-btn next-btn">
+                Next →
+            </a>
+
+        {% elif request.path == "/product-structure" %}
+
+            <a href="{{ url_for('key_characteristics') }}"
+               class="nav-btn next-btn">
+                Next →
+            </a>
+
+        {% elif request.path == "/key-characteristics" %}
+
+            <a href="{{ url_for('functional_links') }}"
+               class="nav-btn next-btn">
+                Next →
+            </a>
+
+        {% elif request.path == "/functional-links" %}
+
+            <a href="{{ url_for('dfmea') }}"
+               class="nav-btn next-btn">
+                Next →
+            </a>
+
+        {% elif request.path == "/dfmea" %}
+
+            <a href="{{ url_for('pfmea') }}"
+               class="nav-btn next-btn">
+                Next →
+            </a>
+
+        {% elif request.path == "/pfmea" %}
+
+            <a href="{{ url_for('control_plan') }}"
+               class="nav-btn next-btn">
+                Next →
+            </a>
+
+        {% elif request.path == "/control-plan" %}
+
+            <a href="{{ url_for('reports') }}"
+               class="nav-btn next-btn">
+                Next →
+            </a>
+
+        {% endif %}
+
+    </div>
+
+</main>
+
+
+<footer>
+
+    <p>
+        Automotive DFMEA &amp; PFMEA Management System
+    </p>
+
+</footer>
+
+</body>
+</html>

@@ -1,0 +1,2039 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<div class="ps-page">
+
+    <!-- HEADER -->
+    <div class="ps-header">
+
+        <div>
+            <h1>Product Structure</h1>
+            <p>Build the product hierarchy from the main product to assemblies and components.</p>
+        </div>
+
+        <div class="project-select-wrap">
+            <label>Select Project</label>
+
+            <select id="projectSelect">
+                <option value="">Select Project</option>
+
+                {% for project in projects %}
+                    <option
+                        value="{{ project.id }}"
+                        {% if selected_project_id|string == project.id|string %}
+                            selected
+                        {% endif %}
+                    >
+                        {{ project.project_name }}
+                        {% if project.product_name %}
+                            — {{ project.product_name }}
+                        {% endif %}
+                    </option>
+                {% endfor %}
+
+            </select>
+        </div>
+
+    </div>
+
+
+    {% if selected_project_id %}
+
+    <!-- TOOLBAR -->
+    <div class="ps-toolbar">
+
+        <button
+            type="button"
+            class="tool-btn insert-btn"
+            id="insertBtn"
+        >
+            INSERT
+        </button>
+
+        <button
+            type="button"
+            class="tool-btn arrow-btn"
+            id="childBtn"
+            title="Insert child below selected box"
+        >
+            ↓
+        </button>
+
+        <button
+            type="button"
+            class="tool-btn arrow-btn"
+            id="connectBtn"
+            title="Connect selected boxes"
+        >
+            →
+        </button>
+
+        <div class="toolbar-separator"></div>
+
+        <button
+            type="button"
+            class="tool-btn"
+            id="saveAllBtn"
+        >
+            SAVE
+        </button>
+
+        <span id="toolMessage" class="tool-message"></span>
+
+    </div>
+
+
+    <!-- HIERARCHY AREA -->
+    <div class="hierarchy-card">
+
+        <div class="hierarchy-header">
+
+            <div>
+                <h2>Product Hierarchy</h2>
+                <p>
+                    Click a box to select it. Use INSERT to create a box,
+                    then use ↓ to create a child.
+                </p>
+            </div>
+
+            <div class="zoom-controls">
+
+                <button type="button" id="zoomOut">−</button>
+
+                <span id="zoomValue">100%</span>
+
+                <button type="button" id="zoomIn">+</button>
+
+                <button type="button" id="fitBtn">
+                    Fit
+                </button>
+
+            </div>
+
+        </div>
+
+
+        <div
+            class="hierarchy-workspace"
+            id="hierarchyWorkspace"
+        >
+
+            <svg
+                id="connectionLayer"
+                class="connection-layer"
+            ></svg>
+
+            <div
+                id="nodeLayer"
+                class="node-layer"
+            >
+
+                {% macro render_node(node) %}
+
+                    <div
+                        class="ps-node"
+                        data-id="{{ node.id }}"
+                        data-parent="{{ node.parent_id or '' }}"
+                        data-level="{{ node.level or 0 }}"
+                    >
+
+                        <div class="ps-box">
+
+                            <div
+                                class="box-number"
+                                contenteditable="true"
+                                spellcheck="false"
+                                data-field="number"
+                                title="Click to edit number"
+                            >
+                                {{ node.label or ('1.' ~ node.level) }}
+                            </div>
+
+                            <div
+                                class="box-text"
+                                contenteditable="true"
+                                spellcheck="false"
+                                data-field="text"
+                                title="Click to edit text"
+                            >
+                                {{ node.component_name }}
+                            </div>
+
+                            <div class="box-actions">
+
+                                <button
+                                    type="button"
+                                    class="mini-btn add-child"
+                                    data-id="{{ node.id }}"
+                                    title="Add child"
+                                >
+                                    +
+                                </button>
+
+                                <a
+                                    href="{{ url_for('edit_product_structure', record_id=node.id) }}"
+                                    class="mini-btn edit-link"
+                                    title="Open full edit"
+                                >
+                                    ✎
+                                </a>
+
+                            </div>
+
+                        </div>
+
+
+                        {% set children =
+                            components
+                            |selectattr('parent_id', 'equalto', node.id)
+                            |list
+                        %}
+
+                        {% if children %}
+
+                            <div class="ps-children">
+
+                                {% for child in children %}
+
+                                    {{ render_node(child) }}
+
+                                {% endfor %}
+
+                            </div>
+
+                        {% endif %}
+
+                    </div>
+
+                {% endmacro %}
+
+
+                {% set roots =
+                    components
+                    |selectattr('parent_id', 'none')
+                    |list
+                %}
+
+
+                {% if roots %}
+
+                    {% for root in roots %}
+
+                        {{ render_node(root) }}
+
+                    {% endfor %}
+
+                {% else %}
+
+                    <div
+                        class="empty-state"
+                        id="emptyState"
+                    >
+
+                        <div class="empty-icon">
+                            +
+                        </div>
+
+                        <h3>No Product Structure</h3>
+
+                        <p>
+                            Click <strong>INSERT</strong> to create
+                            the first product box.
+                        </p>
+
+                    </div>
+
+                {% endif %}
+
+            </div>
+
+        </div>
+
+    </div>
+
+
+    {% else %}
+
+    <!-- NO PROJECT -->
+    <div class="no-project">
+
+        <div class="no-project-icon">
+            □
+        </div>
+
+        <h2>Select a Project</h2>
+
+        <p>
+            Select a project above to start building the product structure.
+        </p>
+
+    </div>
+
+    {% endif %}
+
+</div>
+
+
+<!-- =========================================================
+     INSERT / CHILD MODAL
+========================================================= -->
+
+<div
+    id="nodeModal"
+    class="node-modal hidden"
+>
+
+    <div class="modal-card">
+
+        <div class="modal-header">
+
+            <h2 id="modalTitle">
+                Insert Box
+            </h2>
+
+            <button
+                type="button"
+                id="closeModal"
+                class="close-modal"
+            >
+                ×
+            </button>
+
+        </div>
+
+
+        <label>
+            Box Number
+        </label>
+
+        <input
+            type="text"
+            id="modalNumber"
+            placeholder="Example: 1.0"
+        >
+
+
+        <label>
+            Box Text
+        </label>
+
+        <textarea
+            id="modalText"
+            rows="4"
+            placeholder="Type anything you want..."
+        ></textarea>
+
+
+        <div class="modal-buttons">
+
+            <button
+                type="button"
+                id="cancelModal"
+                class="cancel-btn"
+            >
+                Cancel
+            </button>
+
+            <button
+                type="button"
+                id="createModal"
+                class="create-btn"
+            >
+                Insert Box
+            </button>
+
+        </div>
+
+    </div>
+
+</div>
+
+
+<script>
+
+const projectSelect =
+    document.getElementById("projectSelect");
+
+if (projectSelect) {
+
+    projectSelect.addEventListener("change", function () {
+
+        if (!this.value) {
+            return;
+        }
+
+        window.location.href =
+            "{{ url_for('product_structure') }}"
+            + "?project_id="
+            + encodeURIComponent(this.value);
+
+    });
+
+}
+
+
+/* =========================================================
+   STATE
+========================================================= */
+
+let selectedNode = null;
+
+let firstConnectNode = null;
+
+let currentAction = "insert";
+
+let zoom = 1;
+
+
+/* =========================================================
+   ELEMENTS
+========================================================= */
+
+const modal =
+    document.getElementById("nodeModal");
+
+const modalNumber =
+    document.getElementById("modalNumber");
+
+const modalText =
+    document.getElementById("modalText");
+
+const modalTitle =
+    document.getElementById("modalTitle");
+
+const createModal =
+    document.getElementById("createModal");
+
+const toolMessage =
+    document.getElementById("toolMessage");
+
+const workspace =
+    document.getElementById("hierarchyWorkspace");
+
+const nodeLayer =
+    document.getElementById("nodeLayer");
+
+const connectionLayer =
+    document.getElementById("connectionLayer");
+
+
+/* =========================================================
+   MESSAGE
+========================================================= */
+
+function showMessage(message) {
+
+    if (!toolMessage) {
+        return;
+    }
+
+    toolMessage.textContent = message;
+
+    setTimeout(function () {
+
+        toolMessage.textContent = "";
+
+    }, 2500);
+
+}
+
+
+/* =========================================================
+   SELECT NODE
+========================================================= */
+
+function selectNode(node) {
+
+    document
+        .querySelectorAll(".ps-node")
+        .forEach(function (item) {
+
+            item.classList.remove("selected");
+
+        });
+
+    node.classList.add("selected");
+
+    selectedNode = node;
+
+}
+
+
+/* =========================================================
+   NODE CLICK
+========================================================= */
+
+document
+    .querySelectorAll(".ps-node")
+    .forEach(function (node) {
+
+        node.addEventListener("click", function (event) {
+
+            if (
+                event.target.closest(".box-actions")
+                ||
+                event.target.closest("[contenteditable='true']")
+            ) {
+                return;
+            }
+
+            selectNode(node);
+
+            if (currentAction === "connect") {
+
+                if (!firstConnectNode) {
+
+                    firstConnectNode = node;
+
+                    showMessage(
+                        "Now click the second box to connect."
+                    );
+
+                } else {
+
+                    if (firstConnectNode !== node) {
+
+                        createVisualConnection(
+                            firstConnectNode,
+                            node
+                        );
+
+                    }
+
+                    firstConnectNode = null;
+
+                    currentAction = "insert";
+
+                    showMessage(
+                        "Boxes connected."
+                    );
+
+                }
+
+            }
+
+        });
+
+    });
+
+
+/* =========================================================
+   INSERT BUTTON
+========================================================= */
+
+document
+    .getElementById("insertBtn")
+    ?.addEventListener("click", function () {
+
+        currentAction = "insert";
+
+        openModal(
+            "Insert Box",
+            null
+        );
+
+    });
+
+
+/* =========================================================
+   CHILD BUTTON
+========================================================= */
+
+document
+    .getElementById("childBtn")
+    ?.addEventListener("click", function () {
+
+        if (!selectedNode) {
+
+            showMessage(
+                "Select a parent box first."
+            );
+
+            return;
+        }
+
+        currentAction = "child";
+
+        openModal(
+            "Insert Child Box",
+            selectedNode
+        );
+
+    });
+
+
+/* =========================================================
+   SMALL + BUTTON
+========================================================= */
+
+document
+    .querySelectorAll(".add-child")
+    .forEach(function (button) {
+
+        button.addEventListener("click", function (event) {
+
+            event.stopPropagation();
+
+            const id =
+                this.dataset.id;
+
+            const node =
+                document.querySelector(
+                    '.ps-node[data-id="' + id + '"]'
+                );
+
+            if (!node) {
+                return;
+            }
+
+            selectNode(node);
+
+            currentAction = "child";
+
+            openModal(
+                "Insert Child Box",
+                node
+            );
+
+        });
+
+    });
+
+
+/* =========================================================
+   CONNECT BUTTON
+========================================================= */
+
+document
+    .getElementById("connectBtn")
+    ?.addEventListener("click", function () {
+
+        currentAction = "connect";
+
+        firstConnectNode = null;
+
+        showMessage(
+            "Click the first box, then click the second box."
+        );
+
+    });
+
+
+/* =========================================================
+   MODAL
+========================================================= */
+
+function openModal(title, parentNode) {
+
+    modalTitle.textContent =
+        title;
+
+    modalNumber.value = "";
+
+    modalText.value = "";
+
+    modal.classList.remove("hidden");
+
+    setTimeout(function () {
+
+        modalNumber.focus();
+
+    }, 100);
+
+}
+
+
+function closeModal() {
+
+    modal.classList.add("hidden");
+
+}
+
+
+document
+    .getElementById("closeModal")
+    ?.addEventListener(
+        "click",
+        closeModal
+    );
+
+
+document
+    .getElementById("cancelModal")
+    ?.addEventListener(
+        "click",
+        closeModal
+    );
+
+
+/* =========================================================
+   CREATE BOX
+========================================================= */
+
+createModal?.addEventListener(
+    "click",
+    function () {
+
+        const number =
+            modalNumber.value.trim();
+
+        const text =
+            modalText.value.trim();
+
+        if (!number) {
+
+            alert(
+                "Please enter the box number."
+            );
+
+            return;
+
+        }
+
+        if (!text) {
+
+            alert(
+                "Please enter the box text."
+            );
+
+            return;
+
+        }
+
+        createDatabaseNode(
+            number,
+            text
+        );
+
+    }
+);
+
+
+/* =========================================================
+   CREATE DATABASE NODE
+========================================================= */
+
+function createDatabaseNode(number, text) {
+
+    const form =
+        document.createElement("form");
+
+    form.method = "POST";
+
+    form.action =
+        "{{ url_for('product_structure') }}"
+        + "?project_id={{ selected_project_id }}";
+
+    form.style.display = "none";
+
+
+    addHidden(
+        form,
+        "project_id",
+        "{{ selected_project_id }}"
+    );
+
+
+    let parentId = "";
+
+    if (
+        currentAction === "child"
+        &&
+        selectedNode
+    ) {
+
+        parentId =
+            selectedNode.dataset.id;
+
+    }
+
+
+    addHidden(
+        form,
+        "parent_id",
+        parentId
+    );
+
+
+    addHidden(
+        form,
+        "component_name",
+        text
+    );
+
+
+    addHidden(
+        form,
+        "component_type",
+        "Component"
+    );
+
+
+    /*
+       Existing database field "label"
+       is used for the editable
+       hierarchy number.
+    */
+
+    addHidden(
+        form,
+        "label",
+        number
+    );
+
+
+    addHidden(
+        form,
+        "part_number",
+        ""
+    );
+
+
+    addHidden(
+        form,
+        "description",
+        ""
+    );
+
+
+    document.body.appendChild(form);
+
+    form.submit();
+
+}
+
+
+function addHidden(
+    form,
+    name,
+    value
+) {
+
+    const input =
+        document.createElement("input");
+
+    input.type = "hidden";
+
+    input.name = name;
+
+    input.value = value;
+
+    form.appendChild(input);
+
+}
+
+
+/* =========================================================
+   SAVE EDITED BOXES
+========================================================= */
+
+document
+    .getElementById("saveAllBtn")
+    ?.addEventListener("click", async function () {
+
+        const nodes =
+            document.querySelectorAll(".ps-node");
+
+        let saved = 0;
+
+        for (const node of nodes) {
+
+            const id =
+                node.dataset.id;
+
+            if (!id) {
+                continue;
+            }
+
+            const numberElement =
+                node.querySelector(
+                    '[data-field="number"]'
+                );
+
+            const textElement =
+                node.querySelector(
+                    '[data-field="text"]'
+                );
+
+            if (!numberElement || !textElement) {
+                continue;
+            }
+
+            const number =
+                numberElement.innerText.trim();
+
+            const text =
+                textElement.innerText.trim();
+
+            if (!number || !text) {
+                continue;
+            }
+
+            const formData =
+                new FormData();
+
+            formData.append(
+                "project_id",
+                "{{ selected_project_id }}"
+            );
+
+            formData.append(
+                "parent_id",
+                node.dataset.parent || ""
+            );
+
+            formData.append(
+                "component_name",
+                text
+            );
+
+            formData.append(
+                "component_type",
+                "Component"
+            );
+
+            formData.append(
+                "label",
+                number
+            );
+
+            formData.append(
+                "part_number",
+                ""
+            );
+
+            formData.append(
+                "description",
+                ""
+            );
+
+
+            try {
+
+                const response =
+                    await fetch(
+                        "/product-structure/edit/"
+                        + id,
+                        {
+                            method: "POST",
+                            body: formData
+                        }
+                    );
+
+                if (response.ok) {
+
+                    saved++;
+
+                }
+
+            } catch (error) {
+
+                console.error(error);
+
+            }
+
+        }
+
+
+        showMessage(
+            saved
+            + " box(es) saved successfully."
+        );
+
+    });
+
+
+/* =========================================================
+   VISUAL CONNECTION
+========================================================= */
+
+function createVisualConnection(
+    parent,
+    child
+) {
+
+    parent.dataset.visualChild =
+        child.dataset.id;
+
+    child.dataset.visualParent =
+        parent.dataset.id;
+
+    drawConnections();
+
+}
+
+
+/* =========================================================
+   DRAW HIERARCHY CONNECTIONS
+========================================================= */
+
+function drawConnections() {
+
+    if (!connectionLayer || !workspace) {
+        return;
+    }
+
+    connectionLayer.innerHTML = "";
+
+    const workspaceRect =
+        workspace.getBoundingClientRect();
+
+
+    document
+        .querySelectorAll(".ps-node")
+        .forEach(function (node) {
+
+            const children =
+                document.querySelectorAll(
+                    '.ps-node[data-parent="'
+                    + node.dataset.id
+                    + '"]'
+                );
+
+
+            children.forEach(function (child) {
+
+                drawLine(
+                    node,
+                    child,
+                    workspaceRect
+                );
+
+            });
+
+        });
+
+}
+
+
+/* =========================================================
+   DRAW ONE LINE
+========================================================= */
+
+function drawLine(
+    parent,
+    child,
+    workspaceRect
+) {
+
+    const parentBox =
+        parent.querySelector(".ps-box");
+
+    const childBox =
+        child.querySelector(".ps-box");
+
+    if (!parentBox || !childBox) {
+        return;
+    }
+
+
+    const p =
+        parentBox.getBoundingClientRect();
+
+    const c =
+        childBox.getBoundingClientRect();
+
+
+    const x1 =
+        p.left
+        + p.width / 2
+        - workspaceRect.left;
+
+    const y1 =
+        p.bottom
+        - workspaceRect.top;
+
+
+    const x2 =
+        c.left
+        + c.width / 2
+        - workspaceRect.left;
+
+    const y2 =
+        c.top
+        - workspaceRect.top;
+
+
+    const middleY =
+        y1 + (y2 - y1) / 2;
+
+
+    const path =
+        document.createElementNS(
+            "http://www.w3.org/2000/svg",
+            "path"
+        );
+
+
+    path.setAttribute(
+        "d",
+        "M "
+        + x1
+        + " "
+        + y1
+        + " L "
+        + x1
+        + " "
+        + middleY
+        + " L "
+        + x2
+        + " "
+        + middleY
+        + " L "
+        + x2
+        + " "
+        + y2
+    );
+
+
+    path.setAttribute(
+        "class",
+        "hierarchy-line"
+    );
+
+
+    connectionLayer.appendChild(
+        path
+    );
+
+}
+
+
+/* =========================================================
+   ZOOM
+========================================================= */
+
+function applyZoom() {
+
+    if (!nodeLayer) {
+        return;
+    }
+
+    nodeLayer.style.transform =
+        "scale(" + zoom + ")";
+
+    nodeLayer.style.transformOrigin =
+        "top center";
+
+    document.getElementById(
+        "zoomValue"
+    ).textContent =
+        Math.round(zoom * 100)
+        + "%";
+
+
+    setTimeout(
+        drawConnections,
+        100
+    );
+
+}
+
+
+document
+    .getElementById("zoomIn")
+    ?.addEventListener(
+        "click",
+        function () {
+
+            zoom =
+                Math.min(
+                    1.5,
+                    zoom + 0.1
+                );
+
+            applyZoom();
+
+        }
+    );
+
+
+document
+    .getElementById("zoomOut")
+    ?.addEventListener(
+        "click",
+        function () {
+
+            zoom =
+                Math.max(
+                    0.5,
+                    zoom - 0.1
+                );
+
+            applyZoom();
+
+        }
+    );
+
+
+document
+    .getElementById("fitBtn")
+    ?.addEventListener(
+        "click",
+        function () {
+
+            zoom = 1;
+
+            applyZoom();
+
+        }
+    );
+
+
+window.addEventListener(
+    "resize",
+    drawConnections
+);
+
+
+setTimeout(
+    drawConnections,
+    200
+);
+
+</script>
+
+
+<style>
+
+/* =========================================================
+   PAGE
+========================================================= */
+
+.ps-page {
+
+    max-width: 1500px;
+
+    margin: 0 auto;
+
+    padding: 20px;
+
+}
+
+
+/* =========================================================
+   HEADER
+========================================================= */
+
+.ps-header {
+
+    display: flex;
+
+    justify-content: space-between;
+
+    align-items: flex-end;
+
+    gap: 25px;
+
+    margin-bottom: 15px;
+
+}
+
+.ps-header h1 {
+
+    margin: 0;
+
+    font-size: 28px;
+
+    color: #172b4d;
+
+}
+
+.ps-header p {
+
+    margin: 5px 0 0;
+
+    color: #667085;
+
+    font-size: 14px;
+
+}
+
+
+.project-select-wrap {
+
+    min-width: 300px;
+
+}
+
+.project-select-wrap label {
+
+    display: block;
+
+    margin-bottom: 5px;
+
+    font-size: 12px;
+
+    font-weight: 700;
+
+    color: #475467;
+
+}
+
+.project-select-wrap select {
+
+    width: 100%;
+
+    padding: 10px;
+
+    border: 1px solid #cbd5e1;
+
+    border-radius: 7px;
+
+}
+
+
+/* =========================================================
+   TOOLBAR
+========================================================= */
+
+.ps-toolbar {
+
+    height: 54px;
+
+    display: flex;
+
+    align-items: center;
+
+    gap: 7px;
+
+    padding: 0 12px;
+
+    background: #ffffff;
+
+    border: 1px solid #d8dee8;
+
+    border-radius: 8px;
+
+    box-shadow:
+        0 2px 8px rgba(16, 24, 40, 0.05);
+
+    margin-bottom: 12px;
+
+}
+
+.tool-btn {
+
+    min-width: 44px;
+
+    height: 34px;
+
+    padding: 0 13px;
+
+    border: 1px solid #b8c2ce;
+
+    border-radius: 5px;
+
+    background: #f8fafc;
+
+    color: #172b4d;
+
+    font-weight: 800;
+
+    cursor: pointer;
+
+}
+
+.tool-btn:hover {
+
+    background: #eaf2fb;
+
+}
+
+.insert-btn {
+
+    min-width: 88px;
+
+    background: #17365d;
+
+    color: #ffffff;
+
+    border-color: #17365d;
+
+}
+
+.arrow-btn {
+
+    font-size: 20px;
+
+    line-height: 1;
+
+}
+
+.toolbar-separator {
+
+    width: 1px;
+
+    height: 25px;
+
+    background: #d0d5dd;
+
+    margin: 0 7px;
+
+}
+
+.tool-message {
+
+    margin-left: 10px;
+
+    color: #475467;
+
+    font-size: 13px;
+
+}
+
+
+/* =========================================================
+   HIERARCHY CARD
+========================================================= */
+
+.hierarchy-card {
+
+    background: #ffffff;
+
+    border: 1px solid #d8dee8;
+
+    border-radius: 10px;
+
+    overflow: hidden;
+
+    box-shadow:
+        0 4px 14px rgba(16, 24, 40, 0.05);
+
+}
+
+.hierarchy-header {
+
+    display: flex;
+
+    justify-content: space-between;
+
+    align-items: center;
+
+    padding: 15px 18px;
+
+    border-bottom: 1px solid #e4e7ec;
+
+}
+
+.hierarchy-header h2 {
+
+    margin: 0;
+
+    color: #172b4d;
+
+    font-size: 19px;
+
+}
+
+.hierarchy-header p {
+
+    margin: 4px 0 0;
+
+    color: #667085;
+
+    font-size: 12px;
+
+}
+
+
+/* =========================================================
+   ZOOM
+========================================================= */
+
+.zoom-controls {
+
+    display: flex;
+
+    align-items: center;
+
+    gap: 5px;
+
+}
+
+.zoom-controls button {
+
+    height: 30px;
+
+    min-width: 32px;
+
+    border: 1px solid #cbd5e1;
+
+    background: #f8fafc;
+
+    border-radius: 5px;
+
+    cursor: pointer;
+
+    font-weight: 700;
+
+}
+
+#zoomValue {
+
+    width: 48px;
+
+    text-align: center;
+
+    font-size: 12px;
+
+}
+
+
+/* =========================================================
+   WORKSPACE
+========================================================= */
+
+.hierarchy-workspace {
+
+    position: relative;
+
+    height: 650px;
+
+    overflow: auto;
+
+    background:
+        linear-gradient(
+            #f8fafc 1px,
+            transparent 1px
+        ),
+        linear-gradient(
+            90deg,
+            #f8fafc 1px,
+            transparent 1px
+        );
+
+    background-size: 25px 25px;
+
+    padding: 45px;
+
+}
+
+
+/* =========================================================
+   SVG CONNECTION LAYER
+========================================================= */
+
+.connection-layer {
+
+    position: absolute;
+
+    inset: 0;
+
+    width: 100%;
+
+    height: 100%;
+
+    pointer-events: none;
+
+    z-index: 1;
+
+}
+
+.hierarchy-line {
+
+    fill: none;
+
+    stroke: #566573;
+
+    stroke-width: 2.5;
+
+}
+
+
+/* =========================================================
+   NODE LAYER
+========================================================= */
+
+.node-layer {
+
+    position: relative;
+
+    min-width: 900px;
+
+    min-height: 520px;
+
+    z-index: 2;
+
+}
+
+
+/* =========================================================
+   NODE
+========================================================= */
+
+.ps-node {
+
+    width: max-content;
+
+    min-width: 220px;
+
+    margin: 0 auto;
+
+    position: relative;
+
+    text-align: center;
+
+}
+
+.ps-node.selected
+.ps-box {
+
+    outline: 3px solid #70adff;
+
+    outline-offset: 3px;
+
+}
+
+
+/* =========================================================
+   BOX
+========================================================= */
+
+.ps-box {
+
+    width: 230px;
+
+    min-height: 90px;
+
+    padding: 12px;
+
+    box-sizing: border-box;
+
+    background: #ffffff;
+
+    border: 2px solid #111827;
+
+    border-radius: 3px;
+
+    box-shadow:
+        0 2px 5px rgba(0, 0, 0, 0.08);
+
+    position: relative;
+
+    z-index: 3;
+
+}
+
+.box-number {
+
+    min-height: 18px;
+
+    font-size: 13px;
+
+    font-weight: 800;
+
+    color: #111827;
+
+    text-align: left;
+
+    padding-bottom: 4px;
+
+    cursor: text;
+
+}
+
+.box-text {
+
+    min-height: 25px;
+
+    font-size: 14px;
+
+    font-weight: 700;
+
+    color: #172b4d;
+
+    text-align: center;
+
+    cursor: text;
+
+    overflow-wrap: anywhere;
+
+}
+
+.box-number:focus,
+.box-text:focus {
+
+    outline: 1px dashed #2f75b5;
+
+    outline-offset: 2px;
+
+}
+
+
+/* =========================================================
+   BOX ACTIONS
+========================================================= */
+
+.box-actions {
+
+    display: flex;
+
+    justify-content: flex-end;
+
+    gap: 4px;
+
+    margin-top: 7px;
+
+}
+
+.mini-btn {
+
+    width: 22px;
+
+    height: 20px;
+
+    display: inline-flex;
+
+    align-items: center;
+
+    justify-content: center;
+
+    border: 1px solid #cbd5e1;
+
+    border-radius: 3px;
+
+    background: #f8fafc;
+
+    color: #344054;
+
+    text-decoration: none;
+
+    font-size: 12px;
+
+    cursor: pointer;
+
+}
+
+.mini-btn:hover {
+
+    background: #e8f1fb;
+
+}
+
+
+/* =========================================================
+   CHILDREN
+========================================================= */
+
+.ps-children {
+
+    display: flex;
+
+    justify-content: center;
+
+    gap: 45px;
+
+    padding-top: 60px;
+
+    position: relative;
+
+    width: max-content;
+
+    min-width: 100%;
+
+}
+
+
+/* vertical connector */
+
+.ps-children::before {
+
+    content: "";
+
+    position: absolute;
+
+    top: 0;
+
+    left: 50%;
+
+    width: 2px;
+
+    height: 60px;
+
+    background: #566573;
+
+}
+
+
+/* child nodes */
+
+.ps-children > .ps-node {
+
+    margin: 0;
+
+}
+
+
+/* =========================================================
+   EMPTY
+========================================================= */
+
+.empty-state {
+
+    text-align: center;
+
+    padding-top: 170px;
+
+    color: #667085;
+
+}
+
+.empty-icon {
+
+    width: 55px;
+
+    height: 55px;
+
+    margin: auto;
+
+    display: flex;
+
+    align-items: center;
+
+    justify-content: center;
+
+    border: 2px dashed #98a2b3;
+
+    border-radius: 6px;
+
+    font-size: 30px;
+
+}
+
+.empty-state h3 {
+
+    color: #172b4d;
+
+    margin-bottom: 4px;
+
+}
+
+
+/* =========================================================
+   NO PROJECT
+========================================================= */
+
+.no-project {
+
+    background: #ffffff;
+
+    border: 1px solid #d8dee8;
+
+    border-radius: 10px;
+
+    text-align: center;
+
+    padding: 100px 20px;
+
+}
+
+.no-project-icon {
+
+    font-size: 40px;
+
+    color: #667085;
+
+}
+
+
+/* =========================================================
+   MODAL
+========================================================= */
+
+.node-modal {
+
+    position: fixed;
+
+    inset: 0;
+
+    z-index: 1000;
+
+    display: flex;
+
+    align-items: center;
+
+    justify-content: center;
+
+    background: rgba(15, 23, 42, 0.45);
+
+}
+
+.node-modal.hidden {
+
+    display: none;
+
+}
+
+.modal-card {
+
+    width: 420px;
+
+    max-width: calc(100vw - 30px);
+
+    background: #ffffff;
+
+    border-radius: 10px;
+
+    padding: 22px;
+
+    box-shadow:
+        0 20px 50px rgba(0,0,0,.2);
+
+}
+
+.modal-header {
+
+    display: flex;
+
+    justify-content: space-between;
+
+    align-items: center;
+
+    margin-bottom: 18px;
+
+}
+
+.modal-header h2 {
+
+    margin: 0;
+
+    color: #172b4d;
+
+}
+
+.close-modal {
+
+    border: none;
+
+    background: none;
+
+    font-size: 25px;
+
+    cursor: pointer;
+
+    color: #667085;
+
+}
+
+.modal-card label {
+
+    display: block;
+
+    margin-top: 12px;
+
+    margin-bottom: 5px;
+
+    font-size: 13px;
+
+    font-weight: 700;
+
+}
+
+.modal-card input,
+.modal-card textarea {
+
+    width: 100%;
+
+    box-sizing: border-box;
+
+    border: 1px solid #cbd5e1;
+
+    border-radius: 6px;
+
+    padding: 10px;
+
+    font-family: inherit;
+
+}
+
+.modal-buttons {
+
+    display: flex;
+
+    justify-content: flex-end;
+
+    gap: 8px;
+
+    margin-top: 18px;
+
+}
+
+.cancel-btn,
+.create-btn {
+
+    border: none;
+
+    padding: 9px 16px;
+
+    border-radius: 6px;
+
+    cursor: pointer;
+
+    font-weight: 700;
+
+}
+
+.cancel-btn {
+
+    background: #eef2f6;
+
+    color: #344054;
+
+}
+
+.create-btn {
+
+    background: #17365d;
+
+    color: #ffffff;
+
+}
+
+
+/* =========================================================
+   RESPONSIVE
+========================================================= */
+
+@media (max-width: 800px) {
+
+    .ps-header {
+
+        flex-direction: column;
+
+        align-items: stretch;
+
+    }
+
+    .project-select-wrap {
+
+        min-width: 0;
+
+    }
+
+    .hierarchy-header {
+
+        flex-direction: column;
+
+        align-items: flex-start;
+
+        gap: 12px;
+
+    }
+
+    .ps-toolbar {
+
+        flex-wrap: wrap;
+
+        height: auto;
+
+        padding: 10px;
+
+    }
+
+}
+
+</style>
+
+{% endblock %}
